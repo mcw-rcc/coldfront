@@ -6,8 +6,8 @@ from coldfront.core.project.models import Project
 
 
 class PublicationSource(TimeStampedModel):
-    name = models.CharField(max_length=255)
-    url = models.URLField()
+    name = models.CharField(max_length=255, unique=True)
+    url = models.URLField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -18,6 +18,7 @@ class Publication(TimeStampedModel):
     title = models.CharField(max_length=1024)
     author = models.CharField(max_length=1024)
     year = models.PositiveIntegerField()
+    journal = models.CharField(max_length=1024)
     unique_id = models.CharField(max_length=255, null=True, blank=True)
     source = models.ForeignKey(PublicationSource, on_delete=models.CASCADE)
     STATUS_CHOICES = (

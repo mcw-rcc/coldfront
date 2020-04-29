@@ -1,19 +1,24 @@
 """
-Local Coldfront settings
+Local ColdFront settings
 
 Here you can define custom database settings, add authentication backends,
-configure logging, and Coldfront plugins.
+configure logging, and ColdFront plugins.
 """
 #------------------------------------------------------------------------------
-# Secret Key (required set to something long and random)
+# Secret Key -- Generate new key using: https://www.miniwebtool.com/django-secret-key-generator/
+# and replace
 #------------------------------------------------------------------------------
-SECRET_KEY = ''
+SECRET_KEY = 'vtri&lztlbinerr4+yg1yzm23ez@+ub6=4*63z1%d!)fg(g4x$' # REPLACE
 
 #------------------------------------------------------------------------------
 # Enable debugging. WARNING: These should be set to False in production
 #------------------------------------------------------------------------------
 DEBUG = True
 DEVELOP = True
+
+if DEBUG is False and SECRET_KEY is 'vtri&lztlbinerr4+yg1yzm23ez@+ub6=4*63z1%d!)fg(g4x$':
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("The SECRET_KEY setting is using the preset value. Please update it!")
 
 #------------------------------------------------------------------------------
 # Session settings
@@ -24,7 +29,7 @@ SESSION_COOKIE_SECURE = False
 #------------------------------------------------------------------------------
 # General Center Information
 #------------------------------------------------------------------------------
-# CENTER_NAME = 'HPC Resources'
+CENTER_NAME = 'HPC Resources'
 # CENTER_HELP_URL = 'http://localhost/help'
 # CENTER_PROJECT_RENEWAL_HELP_URL = 'http://localhost/help'
 # CENTER_BASE_URL = 'https://coldfront.io'
@@ -72,14 +77,14 @@ LOGGING = {
 #------------------------------------------------------------------------------
 # Enable Project Review
 #------------------------------------------------------------------------------
-PROJECT_ENABLE_PROJECT_REVIEW = False
+PROJECT_ENABLE_PROJECT_REVIEW = True
 
 #------------------------------------------------------------------------------
-# Subscription related
+# Allocation related
 #------------------------------------------------------------------------------
-SUBSCRIPTION_ENABLE_SUBSCRIPTION_RENEWAL = True
-SUBSCRIPTION_FUNCS_ON_EXPIRE = ['coldfront.core.subscription.utils.test_subscription_function', ]
-SUBSCRIPTION_DEFAULT_SUBSCRIPTION_LENGTH = 365 # DAYS
+ALLOCATION_ENABLE_ALLOCATION_RENEWAL = True
+ALLOCATION_FUNCS_ON_EXPIRE = ['coldfront.core.allocation.utils.test_allocation_function', ]
+ALLOCATION_DEFAULT_ALLOCATION_LENGTH = 365 # DAYS
 
 
 #------------------------------------------------------------------------------
@@ -128,7 +133,7 @@ LOCAL_SETTINGS_EXPORT = []
 # EMAIL_HOST_PASSWORD = ''
 # EMAIL_USE_TLS = False
 # EMAIL_TIMEOUT = 3
-# EMAIL_SUBJECT_PREFIX = '[Coldfront]'
+# EMAIL_SUBJECT_PREFIX = '[ColdFront]'
 # EMAIL_ADMIN_LIST = ['admin@localhost']
 # EMAIL_SENDER = 'coldfront@localhost'
 # EMAIL_TICKET_SYSTEM_ADDRESS = 'help@localhost'
@@ -136,7 +141,7 @@ LOCAL_SETTINGS_EXPORT = []
 # EMAIL_PROJECT_REVIEW_CONTACT = 'review@localhost'
 # EMAIL_DEVELOPMENT_EMAIL_LIST = ['dev1@localhost', 'dev2@localhost']
 # EMAIL_OPT_OUT_INSTRUCTION_URL = 'http://localhost/optout'
-# EMAIL_SUBSCRIPTION_EXPIRING_NOTIFICATION_DAYS = [7, 14, 30]
+# EMAIL_ALLOCATION_EXPIRING_NOTIFICATION_DAYS = [7, 14, 30]
 # EMAIL_SIGNATURE = """
 # HPC Resources
 # http://localhost
@@ -146,7 +151,7 @@ LOCAL_SETTINGS_EXPORT = []
 #------------------------------------------------------------------------------
 # Enable administrators to login as other users
 #------------------------------------------------------------------------------
-# EXTRA_AUTHENTICATION_BACKENDS += ['django_su.backends.SuBackend',]
+EXTRA_AUTHENTICATION_BACKENDS += ['django_su.backends.SuBackend',]
 
 #------------------------------------------------------------------------------
 # Example config for enabling LDAP user authentication using django-auth-ldap.
@@ -182,21 +187,21 @@ LOCAL_SETTINGS_EXPORT = []
 # INVOICE_DEFAULT_STATUS = 'New'  # Override default 'Pending Payment' status
 
 # ------------------------------------------------------------------------------
-# Allow user to select account name for subscription
+# Allow user to select account name for allocation
 # ------------------------------------------------------------------------------
-SUBSCRIPTION_ACCOUNT_ENABLED = False
-# SUBSCRIPTION_ACCOUNT_MAPPING = {
+ALLOCATION_ACCOUNT_ENABLED = False
+# ALLOCATION_ACCOUNT_MAPPING = {
 #     'University HPC': 'slurm_account_name',
 #     'University Cloud': 'Cloud Account Name',
 # }
 
 LOCAL_SETTINGS_EXPORT += [
-    'SUBSCRIPTION_ACCOUNT_ENABLED'
+    'ALLOCATION_ACCOUNT_ENABLED'
 ]
 
 
 #===============================================================================
-# Coldfront Plugin Settings
+# ColdFront Plugin Settings
 #===============================================================================
 
 #------------------------------------------------------------------------------
@@ -261,6 +266,7 @@ LOCAL_SETTINGS_EXPORT += [
 # OIDC_OP_TOKEN_ENDPOINT = "https://localhost/hydra/oauth2/token"
 # OIDC_OP_USER_ENDPOINT = "https://localhost/hydra/userinfo"
 # OIDC_VERIFY_SSL = True
+# OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = 60 * 60
 
 #------------------------------------------------------------------------------
 # Enable Slurm support

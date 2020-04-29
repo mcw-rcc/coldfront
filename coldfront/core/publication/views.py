@@ -1,3 +1,5 @@
+import hashlib
+import json
 import re
 
 import requests
@@ -13,11 +15,17 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView, TemplateView, View
 
 from coldfront.core.project.models import Project
-from coldfront.core.publication.forms import (PublicationDeleteForm,
-                                              PublicationResultForm,
-                                              PublicationSearchForm)
+from coldfront.core.publication.forms import (
+    PublicationAddForm,
+    PublicationDeleteForm,
+    PublicationResultForm,
+    PublicationSearchForm,
+)
 from coldfront.core.publication.models import Publication, PublicationSource
 from doi2bib import crossref
+
+
+MANUAL_SOURCE = 'manual'
 
 
 class PublicationSearchView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -120,10 +128,22 @@ class PublicationSearchResultView(LoginRequiredMixin, UserPassesTestMixin, Templ
 
         author = re.sub("{|}", "", author)
         title = re.sub("{|}", "", title)
+
+        # not all bibtex entries will have a journal field
+        if 'journal' in bib_json:
+            journal = as_text(bib_json['journal']).replace('{\\textquotesingle}', "'").replace('{\\textendash}', '-').replace(
+                '{\\textemdash}', '-').replace('{\\textasciigrave}', ' ').replace('{\\textdaggerdbl}', ' ').replace('{\\textdagger}', ' ')
+            journal = re.sub("{|}", "", journal)
+        else:
+            # fallback: clearly indicate that data was absent
+            source_name = matching_source_obj.name
+            journal = '[no journal info from {}]'.format(source_name.upper())
+
         pub_dict = {}
         pub_dict['author'] = author
         pub_dict['year'] = year
         pub_dict['title'] = title
+        pub_dict['journal'] = journal
         pub_dict['unique_id'] = unique_id
         pub_dict['source_pk'] = matching_source_obj.pk
 
@@ -198,6 +218,7 @@ class PublicationAddView(LoginRequiredMixin, UserPassesTestMixin, View):
                     title=form_data.get('title'),
                     author=form_data.get('author'),
                     year=form_data.get('year'),
+                    journal=form_data.get('journal'),
                     unique_id=form_data.get('unique_id'),
                     source=source_obj
                 )
@@ -215,7 +236,86 @@ class PublicationAddView(LoginRequiredMixin, UserPassesTestMixin, View):
                     ', '.join(publications_skipped))
 
             messages.success(request, msg)
-            return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_pk}))
+        else:
+            for error in formset.errors:
+                messages.error(request, error)
+
+        return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_pk}))
+
+
+class PublicationAddManuallyView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = 'publication/publication_add_publication_manually.html'
+
+    def test_func(self):
+        """ UserPassesTestMixin Tests"""
+        if self.request.user.is_superuser:
+            return True
+
+        project_obj = get_object_or_404(
+            Project, pk=self.kwargs.get('project_pk'))
+
+        if project_obj.pi == self.request.user:
+            return True
+
+        if project_obj.projectuser_set.filter(user=self.request.user, role__name='Manager', status__name='Active').exists():
+            return True
+
+    def dispatch(self, request, *args, **kwargs):
+        project_obj = get_object_or_404(
+            Project, pk=self.kwargs.get('project_pk'))
+        if project_obj.status.name not in ['Active', 'New', ]:
+            messages.error(
+                request, 'You cannot add publications to an archived project.')
+            return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_obj.pk}))
+        else:
+            return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, *args, **kwargs):
+        context = super().get_context_data(*args, **kwargs)
+        context['publication_add_form'] = PublicationAddForm(
+            initial={'source': MANUAL_SOURCE})
+        context['project'] = Project.objects.get(
+            pk=self.kwargs.get('project_pk'))
+        return context
+
+    def post(self, request, *args, **kwargs):
+        project_pk = self.kwargs.get('project_pk')
+        project_obj = get_object_or_404(Project, pk=project_pk)
+
+        # a single, manual pub is being sent
+        client_pub = {
+            key: request.POST[key] for key in (
+                'title',
+                'author',
+                'year',
+                'journal',
+            )
+        }
+        # although not perfect, use a low-collision hash for unique id in the database
+        stable_hash = hashlib.sha256(
+            json.dumps(client_pub, sort_keys=True).encode()
+        ).hexdigest()
+        client_pub['unique_id'] = stable_hash
+        client_pub['source'] = PublicationSource.objects.get(name=MANUAL_SOURCE)
+
+        publication_obj, created = Publication.objects.get_or_create(
+            project=project_obj,
+            **client_pub,
+        )
+        if created:
+            msg = 'Added publication to project.'
+        else:
+            # since we don't have a sensible unique_id here, we need to have
+            # something sensible to display to the user
+            user_friendly_publication_info = '[{} ({}) by {}]'.format(
+                client_pub['title'],
+                client_pub['year'],
+                client_pub['author'],
+            )
+            msg = 'Skipped adding: {}'.format(user_friendly_publication_info)
+
+        messages.success(request, msg)
+        return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_pk}))
 
 
 class PublicationDeletePublicationsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -294,7 +394,11 @@ class PublicationDeletePublicationsView(LoginRequiredMixin, UserPassesTestMixin,
 
             messages.success(request, 'Deleted {} publications from project.'.format(
                 publications_deleted_count))
-            return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_obj.pk}))
+        else:
+            for error in formset.errors:
+                messages.error(request, error)
+
+        return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_obj.pk}))
 
     def get_success_url(self):
         return reverse('project-detail', kwargs={'pk': self.object.project.id})

@@ -17,7 +17,7 @@ from coldfront.core.grant.models import (Grant, GrantFundingAgency,
 from coldfront.core.project.models import Project
 
 
-class GrantCreateView(FormView):
+class GrantCreateView(LoginRequiredMixin, UserPassesTestMixin, FormView):
     form_class = GrantForm
     template_name = 'grant/grant_create.html'
 
@@ -171,7 +171,11 @@ class GrantDeleteGrantsView(LoginRequiredMixin, UserPassesTestMixin, TemplateVie
                     grants_deleted_count += 1
 
             messages.success(request, 'Deleted {} grants from project.'.format(grants_deleted_count))
-            return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_obj.pk}))
+        else:
+            for error in formset.errors:
+                messages.error(request, error)
+
+        return HttpResponseRedirect(reverse('project-detail', kwargs={'pk': project_obj.pk}))
 
     def get_success_url(self):
         return reverse('project-detail', kwargs={'pk': self.object.project.id})
